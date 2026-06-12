@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🚀 Ultra-Engine 3D Interactive Lab (Native)</title>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg-dark: #060913;
+      --panel-bg: rgba(11, 17, 32, 0.95);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #64748b;
+      --neon-cyan: #00f2fe;
+      --neon-pink: #ff007f;
+      --neon-green: #34d399;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; }
+
+    /* Asosiy chizish maydoni */
+    #canvas3d { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+
+    /* UI QATLAMI */
+    .ui-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 10; pointer-events: none;
+      display: grid; grid-template-columns: 1fr 340px; padding: 20px; gap: 20px;
+    }
+
+    .ui-element { pointer-events: auto; }
+    .left-side { display: flex; flex-direction: column; justify-content: space-between; }
+    
+    header {
+      background: var(--panel-bg); backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color); padding: 15px 20px; border-radius: 12px; width: fit-content;
+    }
+    header h1 {
+      font-size: 18px; font-weight: 800;
+      background: linear-gradient(to right, var(--neon-cyan), var(--neon-pink));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .status-box {
+      background: #000; padding: 12px 20px; border-radius: 30px;
+      font-size: 13px; color: var(--neon-cyan); border: 1px solid rgba(0, 242, 254, 0.3);
+    }
+
+    .control-panel {
+      background: var(--panel-bg); backdrop-filter: blur(10px);
+      border: 1px solid var(--border-color); border-radius: 16px;
+      padding: 20px; display: flex; flex-direction: column; gap: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); height: calc(100vh - 40px);
+    }
+
+    h2 { font-size: 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+    .shape-matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    
+    .shape-card {
+      background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color);
+      padding: 15px; border-radius: 8px; text-align: center; cursor: pointer;
+      transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .shape-card span { font-size: 13px; font-weight: 600; }
+    .shape-card:hover { background: rgba(255, 255, 255, 0.05); }
+    
+    /* Aktiv holat */
+    .shape-card.selected {
+      border-color: var(--neon-cyan); background: rgba(0, 242, 254, 0.12);
+      box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+    }
+    .shape-card.selected span { color: var(--neon-cyan); }
+
+    .btn-reset {
+      background: linear-gradient(135deg, #ff007f, #7928ca); border: none;
+      color: white; padding: 12px; border-radius: 8px; cursor: pointer;
+      font-weight: 600; font-size: 13px; margin-top: auto; transition: 0.2s;
+    }
+    .btn-reset:hover { filter: brightness(1.1); }
+  </style>
+</head>
+<body>
+
+  <canvas id="canvas3d"></canvas>
+
+  <div class="ui-layer">
+    <div class="left-side">
+      <header class="ui-element">
+        <h1>🚀 NATIVE 3D ENGINE V3</h1>
+      </header>
+      <div class="status-box ui-element" id="status-text">
+        📌 O'ng tomondagi ro'yxatdan 3 ta shaklni yoqing!
+      </div>
+    </div>
+
+    <div class="control-panel ui-element">
+      <h2>🎛️ Shakllar Matritsasi (Maks 3 ta)</h2>
+      <div class="shape-matrix">
+        <div class="shape-card" id="card-cube" onclick="toggleShape('cube')"><span>📦 Kub</span></div>
+        <div class="shape-card" id="card-pyramid" onclick="toggleShape('pyramid')"><span>📐 Piramida</span></div>
+        <div class="shape-card" id="card-cylinder" onclick="toggleShape('cylinder')"><span>🔋 Silindr</span></div>
+        <div class="shape-card" id="card-diamond" onclick="toggleShape('diamond')"><span>💎 Olmos</span></div>
+        <div class="shape-card" id="card-prism" onclick="toggleShape('prism')"><span>🔮 Prizma</span></div>
+        <div class="shape-card" id="card-wedge" onclick="toggleShape('wedge')"><span>🍕 Blok</span></div>
+        <div class="shape-card" id="card-star" onclick="toggleShape('star')"><span>⭐ Yulduz</span></div>
+        <div class="shape-card" id="card-cross" onclick="toggleShape('cross')"><span>✖️ Krest</span></div>
+      </div>
+      <button class="btn-reset" onclick="resetAll()">Sahnani Tozalash</button>
+    </div>
+  </div>
+
+  <script>
+    // --- NATIVE MATEMATIK 3D PROEKSIYA ENGINE ---
+    const canvas = document.getElementById('canvas3d');
+    const ctx = canvas.getContext('2d');
+
+    let selectedShapes = [];
+    let shapesInScene = [];
+    let draggedObject = null;
+    let isDragging = false;
+    let offsetX, offsetY;
+
+    // Ekran o'lchamini sozlash
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Geometrik 3D nuqtalar va chiziqlar (Tashqi kutubxonasiz Native Matritsa)
+    const geometries = {
+      cube: {
+        nodes: [[-40,-40,-40], [-40,-40,40], [-40,40,-40], [-40,40,40], [40,-40,-40], [40,-40,40], [40,40,-40], [40,40,40]],
+        edges: [[0,1], [1,3], [3,2], [2,0], [4,5], [5,7], [7,6], [6,4], [0,4], [1,5], [2,6], [3,7]]
+      },
+      pyramid: {
+        nodes: [[0,-50,0], [-40,40,-40], [40,40,-40], [40,40,40], [-40,40,40]],
+        edges: [[0,1], [0,2], [0,3], [0,4], [1,2], [2,3], [3,4], [4,1]]
+      },
+      cylinder: {
+        nodes: [[-30,-40,-30], [30,-40,-30], [30,-40,30], [-30,-40,30], [-30,40,-30], [30,40,-30], [30,40,30], [-30,40,30]],
+        edges: [[0,1], [1,2], [2,3], [3,0], [4,5], [5,6], [6,7], [7,4], [0,4], [1,5], [2,6], [3,7]]
+      },
+      diamond: {
+        nodes: [[0,-50,0], [-40,0,-40], [40,0,-40], [40,0,40], [-40,0,40], [0,50,0]],
+        edges: [[0,1], [0,2], [0,3], [0,4], [1,2], [2,3], [3,4], [4,1], [5,1], [5,2], [5,3], [5,4]]
+      },
+      prism: {
+        nodes: [[0,-40,-40], [-40,-40,40], [40,-40,40], [0,40,-40], [-40,40,40], [40,40,40]],
+        edges: [[0,1], [1,2], [2,0], [3,4], [4,5], [5,3], [0,3], [1,4], [2,5]]
+      },
+      wedge: {
+        nodes: [[-40,40,-40], [-40,40,40], [40,40,-40], [40,40,40], [-40,-40,40], [40,-40,40]],
+        edges: [[0,1], [1,3], [3,2], [2,0], [1,4], [3,5], [4,5], [0,4], [2,5]]
+      },
+      star: {
+        nodes: [[0,-50,0], [0,50,0], [-20,0,-20], [20,0,-20], [20,0,20], [-20,0,20], [-50,0,0], [50,0,0]],
+        edges: [[0,2], [0,3], [0,4], [0,5], [1,2], [1,3], [1,4], [1,5], [6,2], [6,5], [7,3], [7,4]]
+      },
+      cross: {
+        nodes: [[-15,-40,-15], [15,-40,-15], [15,40,-15], [-15,40,-15], [-40,-15,15], [40,-15,15], [40,15,15], [-40,15,15]],
+        edges: [[0,1], [1,2], [2,3], [3,0], [4,5], [5,6], [6,7], [7,4], [0,4], [1,5], [2,6], [3,7]]
+      }
+    };
+
+    // Tugma bosilganda ishlash logikasi
+    function toggleShape(type) {
+      const card = document.getElementById(`card-${type}`);
+      const index = selectedShapes.indexOf(type);
+
+      if (index > -1) {
+        selectedShapes.splice(index, 1);
+        card.classList.remove('selected');
+      } else {
+        if (selectedShapes.length >= 3) {
+          alert("Maksimal 3 ta shakl tanlash mumkin!");
+          return;
+        }
+        selectedShapes.push(type);
+        card.classList.add('selected');
+      }
+
+      // Sahnani yangilash
+      buildSceneObjects();
+      document.getElementById('status-text').innerHTML = `🔥 Faol: ${selectedShapes.length}/3. Istalgan shaklni sichqoncha bilan jildiring!`;
+    }
+
+    // Sahnadagi obyektlarni yaratish
+    function buildSceneObjects() {
+      shapesInScene = [];
+      const startX = (window.innerWidth - 340) / 2;
+      const startY = window.innerHeight / 2;
+
+      selectedShapes.forEach((type, index) => {
+        // Ranglar palitrasi
+        const colors = ['#00f2fe', '#ff007f', '#34d399'];
+        
+        shapesInScene.push({
+          type: type,
+          x: startX + (index - 1) * 200 - 50, // Yonma-yon joylashtirish
+          y: startY,
+          color: colors[index],
+          angleX: 0.5,
+          angleY: 0.5,
+          size: 1.2
+        });
+      });
+    }
+
+    // --- INTERAKTIV DRAG & DROP LOGIKASI (NATIVE MOUSE EVENTS) ---
+    canvas.addEventListener('mousedown', (e) => {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      // Bosilgan nuqtada obyekt borligini tekshirish (Radius: 80px)
+      for (let i = shapesInScene.length - 1; i >= 0; i--) {
+        const obj = shapesInScene[i];
+        const dist = Math.hypot(obj.x - mouseX, obj.y - mouseY);
+        
+        if (dist < 80) {
+          draggedObject = obj;
+          isDragging = true;
+          offsetX = mouseX - obj.x;
+          offsetY = mouseY - obj.y;
+          break;
+        }
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging && draggedObject) {
+        draggedObject.x = e.clientX - offsetX;
+        draggedObject.y = e.clientY - offsetY;
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      isDragging = false;
+      draggedObject = null;
+    });
+
+    // Tozalash
+    function resetAll() {
+      selectedShapes = [];
+      shapesInScene = [];
+      document.querySelectorAll('.shape-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById('status-text').innerHTML = `📌 Panelro'yxatidan 3 ta shaklni tanlang.`;
+    }
+
+    // --- REAJALASHTIRILGAN CHIZISH SIKLI (MATEMATIK PROEKSIYA) ---
+    function renderLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Zamin chizig'i (Grid effekt)
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < canvas.width; i += 40) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+      }
+      for (let j = 0; j < canvas.height; j += 40) {
+        ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+      }
+
+      // Obyektlarni 3D fazoda aylantirish va chizish
+      shapesInScene.forEach(obj => {
+        if (!isDragging || draggedObject !== obj) {
+          obj.angleX += 0.01; // Avtomatik aylanish effekti
+          obj.angleY += 0.01;
+        }
+
+        const geom = geometries[obj.type];
+        const projectedNodes = [];
+
+        // 3D Matematik burchak matritsasi hisobi
+        const radX = obj.angleX;
+        const radY = obj.angleY;
+        const cosX = Math.cos(radX), sinX = Math.sin(radX);
+        const cosY = Math.cos(radY), sinY = Math.sin(radY);
+
+        geom.nodes.forEach(node => {
+          // X o'qi atrofida aylantirish
+          let y1 = node[1] * cosX - node[2] * sinX;
+          let z1 = node[2] * cosX + node[1] * sinX;
+
+          // Y o'qi atrofida aylantirish
+          let x2 = node[0] * cosY - z1 * sinY;
+          
+          // Ekranga proeksiya qilish (2D nuqtaga o'tkazish)
+          projectedNodes.push([
+            x2 * obj.size + obj.x,
+            y1 * obj.size + obj.y
+          ]);
+        });
+
+        // Chiziqlarni (Edges) ulash va Neon ko'rinish berish
+        ctx.strokeStyle = obj.color;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = obj.color;
+
+        geom.edges.forEach(edge => {
+          const p1 = projectedNodes[edge[0]];
+          const p2 = projectedNodes[edge[1]];
+          ctx.beginPath();
+          ctx.moveTo(p1[0], p1[1]);
+          ctx.lineTo(p2[0], p2[1]);
+          ctx.stroke();
+        });
+
+        // Markaziy soya effekti
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, 50, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // Engine ishga tushdi
+    renderLoop();
+  </script>
+</body>
+</html>
